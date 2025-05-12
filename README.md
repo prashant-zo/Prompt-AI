@@ -1,6 +1,6 @@
-# PromptAI
+# PromptTune
 
-A modern, production-ready AI chat application built with Next.js 14 App Router, Vercel AI SDK, Firebase, and Tailwind CSS. PromptAI helps users craft exceptional prompts for a wide range of AI systems, with a focus on accessibility and professional UX.
+A modern, production-ready AI chat application built with Next.js 14 App Router, Vercel AI SDK, Firebase, and Tailwind CSS. PromptTune helps users craft exceptional prompts for a wide range of AI systems, with a focus on accessibility and professional UX.
 
 ## Features
 - AI chat with leveled prompt suggestions (Beginner, Intermediate, Advanced)
@@ -23,8 +23,8 @@ A modern, production-ready AI chat application built with Next.js 14 App Router,
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/your-username/promptai.git
-cd promptai
+git clone https://github.com/your-username/prompttune.git
+cd prompttune
 ```
 
 ### 2. Install dependencies

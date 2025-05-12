@@ -5,7 +5,7 @@ import { refinePromptOrGeneratePath } from './actions';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useAuth } from '../contexts/AuthContext';
-import { signInWithPopup, signOut, User } from 'firebase/auth';
+import { signInWithPopup, signOut, User, sendEmailVerification } from 'firebase/auth';
 import { auth, googleProvider, firestore } from '../lib/firebase';
 import { 
   collection, 
@@ -29,6 +29,7 @@ import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
 import ChatAreaComponent from "./components/ChatArea";
 import MessageInputComponent from "./components/MessageInput";
+import { useRouter } from 'next/navigation';
 
 type Message = {
   id: string;
@@ -134,14 +135,27 @@ export default function HomePage() {
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [chatHistoryList, setChatHistoryList] = useState<ChatHistoryItem[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
-  const [anonymousMessageCount, setAnonymousMessageCount] = useState(0);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationEmailResent, setVerificationEmailResent] = useState(false);
 
   // Refs
   const conversationEndRef = useRef<HTMLDivElement>(null);
 
   // Auth
   const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+
+  // Check email verification status
+  useEffect(() => {
+    if (!authLoading) {
+      if (user && !user.emailVerified) {
+        setShowVerificationModal(true);
+      } else {
+        setShowVerificationModal(false);
+      }
+    }
+  }, [user, authLoading]);
 
   // Chat management functions
   const handleNewChat = useCallback(() => {
@@ -220,21 +234,6 @@ export default function HomePage() {
     localStorage.setItem('theme', theme);
   }, [theme, themeLoaded]);
 
-  // Anonymous message count management
-  useEffect(() => {
-    const savedCount = localStorage.getItem('anonymousMessageCount');
-    if (savedCount) {
-      setAnonymousMessageCount(parseInt(savedCount));
-    }
-  }, []);
-
-  useEffect(() => {
-    if (user) {
-      setAnonymousMessageCount(0);
-      localStorage.removeItem('anonymousMessageCount');
-    }
-  }, [user]);
-
   // Auto-scroll effect
   useEffect(() => {
     if (messages.length > 0 || streamingAI) {
@@ -299,13 +298,11 @@ export default function HomePage() {
     const currentInput = userInput.trim();
     if (!currentInput) return;
 
-    // Check anonymous user limit
-    if (!user && anonymousMessageCount >= 5) {
-      setAuthError("Please sign in to continue chatting");
+    if (!user) {
+      router.push('/login');
       return;
     }
 
-    // Generate message ID
     const userMessageId = Date.now().toString();
 
     // Optimistic UI update for user message
@@ -315,96 +312,85 @@ export default function HomePage() {
       text: currentInput,
       timestamp: Timestamp.now(),
     };
-
     setMessages(prev => [...prev, optimisticUserMessage]);
     setUserInput('');
     setIsLoading(true);
     setStreamingAI('');
-    setStreamingMessageId(userMessageId);
+    setStreamingMessageId(userMessageId + '_ai_stream_placeholder');
 
     try {
       let activeChatId = currentChatId;
+      const userMessageToSaveToDb = { id: userMessageId, type: 'user' as const, text: currentInput };
 
-      // Handle logged-in user's message storage
-      if (user) {
-        if (!activeChatId) {
-          // Create new chat
-          const newChatId = await createNewChatInFirestore(user.uid, currentInput, userMessageId);
-          if (!newChatId) {
-            throw new Error("Failed to create new chat");
-          }
+      if (!activeChatId) { // New chat
+        const newChatId = await createNewChatInFirestore(user.uid, currentInput, userMessageId);
+        if (newChatId) {
           activeChatId = newChatId;
           setCurrentChatId(newChatId);
         } else {
-          // Add message to existing chat
-          await addMessageToChatInFirestore(user.uid, activeChatId, {
-            id: userMessageId,
-            type: 'user',
-            text: currentInput,
-          });
+          setMessages(prev => prev.filter(msg => msg.id !== userMessageId));
+          setMessages(prev => [
+            ...prev,
+            { id: Date.now().toString(), type: 'error' as const, text: 'Failed to start new chat. Please try again.', timestamp: Timestamp.now() }
+          ]);
+          setIsLoading(false);
+          setStreamingAI(null);
+          setStreamingMessageId(null);
+          return;
         }
+      } else { // Existing chat
+        await addMessageToChatInFirestore(user.uid, activeChatId, userMessageToSaveToDb);
       }
 
-      // Prepare conversation history for AI
-      const conversationHistoryForAI = messages.map(msg => ({
-        role: msg.type === 'user' ? 'user' as const : 'model' as const,
-        parts: [{ text: msg.text }]
-      }));
+      // Call AI, only if we have an activeChatId
+      if (activeChatId) {
+        // Prepare history: use messages *before* adding the current user's input for the AI's context
+        const conversationHistoryForAI = messages
+          .filter(m => m.id !== userMessageId)
+          .filter(m => m.type === 'user' || m.type === 'ai')
+          .map(m => ({
+            role: m.type === 'user' ? 'user' as const : 'model' as const,
+            parts: [{ text: m.text }],
+          }));
 
-      // Get AI response
-      const result = await refinePromptOrGeneratePath(currentInput, conversationHistoryForAI);
-      
-      // Clear streaming states
+        const result = await refinePromptOrGeneratePath(currentInput, conversationHistoryForAI);
+
+        setStreamingAI(null);
+        setStreamingMessageId(null);
+
+        if (result.success && result.data) {
+          const aiMessagePayload = { id: Date.now().toString(), type: 'ai' as const, text: result.data };
+          await addMessageToChatInFirestore(user.uid, activeChatId, aiMessagePayload);
+        } else {
+          const errorText = result.error || 'AI failed to respond.';
+          const errorMessagePayload = { id: Date.now().toString(), type: 'error' as const, text: errorText };
+          await addMessageToChatInFirestore(user.uid, activeChatId, errorMessagePayload);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error in handleSubmit:', error);
+      setMessages(prev => prev.filter(msg => msg.id !== userMessageId));
+      setMessages(prev => [
+        ...prev,
+        { id: Date.now().toString(), type: 'error' as const, text: error.message || 'An unexpected error occurred.', timestamp: Timestamp.now() }
+      ]);
       setStreamingAI(null);
       setStreamingMessageId(null);
-
-      // Handle AI response
-      const aiMessageId = (Date.now() + 1).toString();
-      const aiMessage: Message = {
-        id: aiMessageId,
-        type: result.success ? 'ai' : 'error',
-        text: result.success ? (result.data as string) : (result.error as string || 'An error occurred'),
-        timestamp: Timestamp.now(),
-      };
-
-      if (result.success) {
-        if (user && activeChatId) {
-          // Store AI response in Firestore
-          await addMessageToChatInFirestore(user.uid, activeChatId, {
-            id: aiMessageId,
-            type: 'ai',
-            text: result.data as string,
-          });
-        } else {
-          // Update local state for anonymous user
-          setMessages(prev => [...prev, aiMessage]);
-          setAnonymousMessageCount(prev => {
-            const newCount = prev + 1;
-            localStorage.setItem('anonymousMessageCount', newCount.toString());
-            return newCount;
-          });
-        }
-      } else {
-        if (user && activeChatId) {
-          // Store error message in Firestore
-          await addMessageToChatInFirestore(user.uid, activeChatId, {
-            id: aiMessageId,
-            type: 'error',
-            text: result.error as string || 'An error occurred',
-          });
-        } else {
-          // Update local state for anonymous user
-          setMessages(prev => [...prev, aiMessage]);
-        }
-      }
-    } catch (error) {
-      console.error("Error in handleSubmit:", error);
-      setAuthError("Failed to process message");
-      
-      // Rollback optimistic UI update
-      setMessages(prev => prev.filter(msg => msg.id !== userMessageId));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResendVerificationEmail = async () => {
+    if (user && !user.emailVerified) {
+      try {
+        await sendEmailVerification(user);
+        setVerificationEmailResent(true);
+        setTimeout(() => setVerificationEmailResent(false), 15000); // Message visible for 15s
+      } catch (error) {
+        console.error("Error resending verification email:", error);
+        alert("Failed to resend verification email. Please try again later.");
+      }
     }
   };
 
@@ -425,54 +411,181 @@ export default function HomePage() {
     );
   }
 
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-neutral-100 dark:bg-neutral-900">
+        <p className="text-xl text-slate-700 dark:text-slate-300">Loading application...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className={`min-h-screen flex flex-col items-center justify-center font-sans p-4 bg-neutral-100 dark:bg-neutral-900 ${theme}`}>
+        <div className="absolute top-0 right-0 p-4">
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-neutral-800"
+            aria-label="Toggle theme"
+          >
+            {theme === 'light' ? (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2m11-11h-2M3 12H1m16.95 7.07l-1.41-1.41M6.34 6.34L4.93 4.93m12.02 0l-1.41 1.41M6.34 17.66l-1.41 1.41"/></svg>
+            ) : (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 109.79 9.79z"/></svg>
+            )}
+          </button>
+        </div>
+        <div className="w-full max-w-lg p-6 sm:p-8 shadow-xl bg-background text-foreground rounded-xl border border-border">
+          <div className="mb-6">
+            <h2 className="text-3xl font-bold text-center mb-2">Welcome to PromptTune!</h2>
+          </div>
+          <div className="space-y-4 text-center text-muted-foreground mb-6">
+            <p>
+              Unlock the full potential of AI by crafting powerful and effective prompts with ease.
+              PromptTune helps you refine your ideas into perfectly structured instructions for any AI.
+            </p>
+            <p>
+              Get tailored suggestions for Beginner, Intermediate, and Advanced levels, ready to copy and paste!
+            </p>
+          </div>
+          <div className="flex justify-center mt-6">
+            <button
+              className="w-full sm:w-auto bg-sky-500 hover:bg-sky-600 text-white font-semibold py-2 px-6 rounded-lg text-lg transition-colors"
+              onClick={() => router.push('/login')}
+            >
+              Get Started & Login
+            </button>
+          </div>
+        </div>
+        {/* SEO Rich Content Section */}
+        <section className="mt-12 w-full max-w-2xl text-center text-sm text-slate-600 dark:text-slate-400 space-y-4 px-4">
+          <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-4">
+            Craft Effective AI Prompts Effortlessly with PromptTune
+          </h1>
+          <p className="text-base text-slate-700 dark:text-slate-300 mb-2">
+            Welcome to PromptTune, your intelligent prompt generator designed to make AI prompt engineering easy for everyone. Whether you're a beginner or an expert, PromptTune helps you craft effective prompts for any AI model—no guesswork required. Unlock the full potential of AI with clear guidance, structured examples, and instant results.
+          </p>
+          <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-300 mt-8">Why PromptTune?</h2>
+          <p>
+            Unlock the true power of artificial intelligence with PromptTune, your expert AI prompt engineering assistant. We guide you in crafting precise, effective prompts for any AI model, including ChatGPT, Gemini, and more. Whether you're a beginner taking your first steps or an expert looking to refine complex instructions, PromptTune provides structured examples and clear explanations across Beginner, Intermediate, and Advanced levels.
+          </p>
+          <p>
+            Stop guessing and start generating! Improve your AI interactions, get better results, and save time with our intuitive prompt generator. Explore prompt creation for coding, creative writing, data analysis, image generation, and countless other applications.
+          </p>
+          <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 pt-2">Features:</h3>
+          <ul className="list-disc list-inside text-left mx-auto max-w-md space-y-2">
+            <li><b>Leveled Prompt Generation (Beginner, Intermediate, Advanced):</b> Get prompt suggestions tailored to your skill level, making it easy for anyone to start or refine their AI interactions.</li>
+            <li><b>Clear Explanations:</b> Every prompt comes with a concise explanation, helping you understand why it works and how to customize it for your needs.</li>
+            <li><b>Contextual Chat Refinement:</b> Interactively improve and iterate on your prompts in a chat format, ensuring you get the best results for your specific task.</li>
+            <li><b>Easy Copy-Paste:</b> Instantly copy any prompt or suggestion with a single click, so you can use it directly in ChatGPT, Gemini, or any other AI tool.</li>
+            <li><b>Supports Multiple AI Models:</b> Designed to help you craft effective prompts for a variety of AI systems, including ChatGPT, Gemini, and more.</li>
+          </ul>
+          {/* Who Can Benefit Section */}
+          <div className="mt-10 text-left mx-auto max-w-2xl">
+            <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-300 mb-2">Who Can Benefit from PromptTune?</h2>
+            <p className="mb-2">
+              PromptTune is designed for anyone who wants to get more out of AI—no matter their background or experience level. Content creators can use PromptTune to generate creative ideas, refine their writing prompts, and streamline their workflow. Developers and technical professionals will appreciate the ability to craft precise, effective prompts for coding assistants, data analysis, and automation tasks. Students and researchers can leverage PromptTune to ask better questions, summarize information, and explore new topics with clarity and depth.
+            </p>
+            <p>
+              Marketers, business professionals, and anyone new to AI will find PromptTune especially approachable. The app's intuitive interface and leveled prompt suggestions make it easy for non-technical users to start generating high-quality prompts right away—no jargon or prior experience required. At the same time, advanced users can dive deeper, iteratively refining their prompts and unlocking the full power of AI models like ChatGPT and Gemini. Whether you're just starting your AI journey or looking to take your skills to the next level, PromptTune is your personal guide to better, smarter AI interactions.
+            </p>
+          </div>
+          {/* Call to Action */}
+          <div className="mt-8 text-center">
+            <p className="text-lg font-semibold text-sky-700 dark:text-sky-400">
+              Ready to unlock the full potential of AI? Join PromptTune now and start creating powerful, effective prompts with ease—no experience required! Sign up today and take your AI interactions to the next level.
+            </p>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  // If user is logged in, render the main chat application UI:
   return (
-    <div className="flex flex-col h-screen overflow-hidden font-sans bg-background text-foreground">
-      <TopBar 
-        theme={theme}
-        onToggleTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-        user={user}
-        authLoading={authLoading}
-        onSignOut={handleSignOut}
-        isSidebarOpen={isSidebarOpen}
-      />
-      
-      <div className="flex-1 flex overflow-hidden pt-16">
-        <Sidebar 
-          isOpen={isSidebarOpen}
-          onOpenChange={setIsSidebarOpen}
-          chatHistory={chatHistoryList}
-          currentChatId={currentChatId}
-          onSelectChat={handleSelectChat}
-          onNewChat={handleNewChat}
-          onSignOut={handleSignOut}
-          onDeleteChat={handleDeleteChat}
-          user={user}
-        />
-        
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {messages.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-4">
-              <h1 className="text-2xl font-bold mb-8">Welcome to AI Chat</h1>
-              <div className="w-full max-w-3xl mx-auto px-4 sm:px-6">
-                <MessageInputComponent
-                  value={userInput}
-                  onChange={setUserInput}
-                  onSend={handleSubmit}
-                  disabled={isLoading}
-                />
+    <>
+      {/* Email Verification Modal */}
+      {showVerificationModal && user && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/70" aria-hidden="true" />
+          <div className="relative z-50 w-full max-w-lg p-6 bg-white dark:bg-slate-900 rounded-xl shadow-2xl">
+            <div className="space-y-4">
+              <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+                Verify Your Email Address
+              </h2>
+              <p className="text-slate-600 dark:text-slate-400">
+                To continue using PromptTune and save your chat history, please verify your email address.
+                We've sent a verification link to <strong className="text-slate-900 dark:text-slate-100">{user.email}</strong>.
+                Please check your inbox (and spam folder).
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={async () => {
+                    if (user) {
+                      try {
+                        await user.reload();
+                        if (user.emailVerified) {
+                          setShowVerificationModal(false);
+                        } else {
+                          alert("Email still not verified. Please check your inbox or try resending.");
+                        }
+                      } catch (error) {
+                        console.error("Error reloading user:", error);
+                        alert("Could not refresh verification status. Please try again.");
+                      }
+                    }
+                  }}
+                  className="w-full py-2 px-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-400"
+                >
+                  I've Verified / Refresh Status
+                </button>
+                <button
+                  onClick={handleResendVerificationEmail}
+                  disabled={verificationEmailResent}
+                  className="w-full py-2 px-4 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-medium focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {verificationEmailResent ? 'Verification Email Sent!' : 'Resend Verification Email'}
+                </button>
+                <button
+                  onClick={handleSignOut}
+                  className="w-full py-2 px-4 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                >
+                  Logout
+                </button>
               </div>
             </div>
-          ) : (
-            <>
-              <ChatAreaComponent
-                messages={messages}
-                streamingAI={streamingAI}
-                isLoading={isLoading && !streamingAI}
-                chatEndRef={conversationEndRef}
-                streamingMessageId={streamingMessageId}
-              />
-              <div className="w-full max-w-3xl mx-auto px-4 sm:px-6">
+          </div>
+        </div>
+      )}
+
+      {/* Main Chat UI */}
+      <div className={`flex flex-col h-screen overflow-hidden font-sans bg-background text-foreground ${showVerificationModal ? 'filter blur-sm pointer-events-none' : ''}`}>
+        <TopBar 
+          theme={theme}
+          onToggleTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          user={user}
+          authLoading={authLoading}
+          onSignOut={handleSignOut}
+          isSidebarOpen={isSidebarOpen}
+        />
+        <div className="flex-1 flex overflow-hidden pt-16">
+          <Sidebar 
+            isOpen={isSidebarOpen}
+            onOpenChange={setIsSidebarOpen}
+            chatHistory={chatHistoryList}
+            currentChatId={currentChatId}
+            onSelectChat={handleSelectChat}
+            onNewChat={handleNewChat}
+            onSignOut={handleSignOut}
+            onDeleteChat={handleDeleteChat}
+            user={user}
+          />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {messages.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-4">
+                <h1 className="text-2xl font-bold mb-8">Welcome to PromptTune! AI</h1>
+                <div className="w-full max-w-3xl mx-auto px-4 sm:px-6">
                   <MessageInputComponent
                     value={userInput}
                     onChange={setUserInput}
@@ -480,10 +593,29 @@ export default function HomePage() {
                     disabled={isLoading}
                   />
                 </div>
-            </>
-          )}
+              </div>
+            ) : (
+              <>
+                <ChatAreaComponent
+                  messages={messages}
+                  streamingAI={streamingAI}
+                  isLoading={isLoading && !streamingAI}
+                  chatEndRef={conversationEndRef}
+                  streamingMessageId={streamingMessageId}
+                />
+                <div className="w-full max-w-3xl mx-auto px-4 sm:px-6">
+                  <MessageInputComponent
+                    value={userInput}
+                    onChange={setUserInput}
+                    onSend={handleSubmit}
+                    disabled={isLoading}
+                  />
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
