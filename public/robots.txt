@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /login
+Disallow: /signup
+Disallow: /api/
+
+Sitemap: https://prompttune.banter.life/sitemap.xml 

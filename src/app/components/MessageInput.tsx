@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { Send } from "lucide-react";
 
 export default function MessageInput({ value, onChange, onSend, disabled }: {
@@ -10,6 +10,31 @@ export default function MessageInput({ value, onChange, onSend, disabled }: {
   disabled?: boolean;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  };
+
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [value]);
+
+  const handleInputChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onChange(event.target.value);
+    // adjustTextareaHeight(); // useEffect will handle this after value updates
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      onSend();
+    }
+  };
+
   return (
     <form
       className="w-full flex items-end gap-2 bg-background border border-border rounded-xl shadow-lg px-4 py-3"
@@ -21,10 +46,11 @@ export default function MessageInput({ value, onChange, onSend, disabled }: {
       <textarea
         ref={textareaRef}
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={handleInputChange}
+        onKeyDown={handleKeyDown}
         placeholder="Send a message..."
         rows={1}
-        className="flex-1 bg-transparent resize-none border-none focus:ring-0 focus:outline-none min-h-[40px] max-h-[120px] text-base font-light"
+        className="flex-1 bg-transparent resize-none border-none focus:ring-0 focus:outline-none min-h-[40px] max-h-[120px] text-base font-light overflow-y-auto"
         style={{ boxShadow: 'none' }}
         autoFocus
       />

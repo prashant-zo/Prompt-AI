@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import Link from 'next/link';
@@ -35,10 +35,35 @@ export default function SignUpPage() {
     }
 
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      router.push('/');
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const newUser = userCredential.user;
+
+      if (newUser) {
+        try {
+          await sendEmailVerification(newUser);
+          // Redirect to login page with success message and email for pre-filling
+          router.push(`/login?verified=false&email=${encodeURIComponent(newUser.email || '')}`);
+        } catch (verificationError: any) {
+          console.error("Error sending verification email:", verificationError);
+          // User is created but verification email failed
+          router.push(`/login?verified=error&email=${encodeURIComponent(newUser.email || '')}`);
+        }
+      } else {
+        // Should not happen if createUserWithEmailAndPassword succeeded
+        throw new Error("User creation succeeded but no user object returned.");
+      }
     } catch (err: any) {
-      setError(err.message || 'Sign up failed');
+      console.error("Sign up error:", err);
+      // Firebase error codes can be more specific:
+      if (err.code === 'auth/email-already-in-use') {
+        setError('This email address is already in use. Please login or use a different email.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('The password is too weak. Please use a stronger password.');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('Please enter a valid email address.');
+      } else {
+        setError(err.message || 'Sign up failed. Please try again.');
+      }
       setIsLoading(false);
     }
   };

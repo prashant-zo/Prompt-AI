@@ -34,7 +34,7 @@ export default function TopBar({
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <span className="font-bold text-lg tracking-tight">PromptAI</span>
+        <span className="font-bold text-lg tracking-tight">PromptTune</span>
       </div>
 
       <div className="flex items-center gap-3">

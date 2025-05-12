@@ -51,7 +51,7 @@ export default function Sidebar({
         <div className="flex flex-col h-full p-4 gap-4">
           {/* Logo/App Name */}
           <div className="flex items-center gap-2 mb-2">
-            <span className="font-bold text-lg tracking-tight">PromptAI</span>
+            <span className="font-bold text-lg tracking-tight">PromptTune</span>
           </div>
 
           {/* New Chat Button */}
