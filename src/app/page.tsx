@@ -515,7 +515,7 @@ export default function HomePage() {
               </h2>
               <p className="text-slate-600 dark:text-slate-400">
                 To continue using PromptTune and save your chat history, please verify your email address.
-                We've sent a verification link to <strong className="text-slate-900 dark:text-slate-100">{user.email}</strong>.
+                We&apos;ve sent a verification link to <strong className="text-slate-900 dark:text-slate-100">{user.email}</strong>.
                 Please check your inbox (and spam folder).
               </p>
               <div className="space-y-3">
@@ -537,7 +537,7 @@ export default function HomePage() {
                   }}
                   className="w-full py-2 px-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-400"
                 >
-                  I've Verified / Refresh Status
+                  I&apos;ve Verified / Refresh Status
                 </button>
                 <button
                   onClick={handleResendVerificationEmail}
