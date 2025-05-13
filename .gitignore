@@ -75,5 +75,3 @@ Icon?
 
 .env
 
-# Ignore sensitive server actions
-src/app/actions.ts
