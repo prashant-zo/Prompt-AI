@@ -460,40 +460,40 @@ export default function HomePage() {
         {/* SEO Rich Content Section */}
         <section className="mt-12 w-full max-w-2xl text-center text-sm text-slate-600 dark:text-slate-400 space-y-4 px-4">
           <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-4">
-            Craft Effective AI Prompts Effortlessly with PromptTune
+            PromptTune: Your AI Prompt Generator &amp; Engineering Assistant
           </h1>
           <p className="text-base text-slate-700 dark:text-slate-300 mb-2">
-            Welcome to PromptTune, your intelligent prompt generator designed to make AI prompt engineering easy for everyone. Whether you're a beginner or an expert, PromptTune helps you craft effective prompts for any AI model—no guesswork required. Unlock the full potential of AI with clear guidance, structured examples, and instant results.
+            Welcome to PromptTune, the AI assistant that makes prompt engineering simple and accessible for everyone. Whether you&apos;re new to AI or an experienced user, PromptTune helps you craft effective prompts for any model—no guesswork required. Get started with Beginner, Intermediate, and Advanced prompts, and unlock the full power of AI with clear guidance and instant results.
           </p>
           <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-300 mt-8">Why PromptTune?</h2>
           <p>
-            Unlock the true power of artificial intelligence with PromptTune, your expert AI prompt engineering assistant. We guide you in crafting precise, effective prompts for any AI model, including ChatGPT, Gemini, and more. Whether you're a beginner taking your first steps or an expert looking to refine complex instructions, PromptTune provides structured examples and clear explanations across Beginner, Intermediate, and Advanced levels.
+            Unlock the true power of artificial intelligence with PromptTune, your expert AI prompt engineering assistant. We guide you in crafting precise, effective prompts for any AI model, including ChatGPT, Gemini, and more. Whether you&apos;re a beginner taking your first steps or an expert looking to refine complex instructions, PromptTune provides structured examples and clear explanations across Beginner, Intermediate, and Advanced levels.
           </p>
           <p>
             Stop guessing and start generating! Improve your AI interactions, get better results, and save time with our intuitive prompt generator. Explore prompt creation for coding, creative writing, data analysis, image generation, and countless other applications.
           </p>
           <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 pt-2">Features:</h3>
           <ul className="list-disc list-inside text-left mx-auto max-w-md space-y-2">
-            <li><b>Leveled Prompt Generation (Beginner, Intermediate, Advanced):</b> Get prompt suggestions tailored to your skill level, making it easy for anyone to start or refine their AI interactions.</li>
-            <li><b>Clear Explanations:</b> Every prompt comes with a concise explanation, helping you understand why it works and how to customize it for your needs.</li>
-            <li><b>Contextual Chat Refinement:</b> Interactively improve and iterate on your prompts in a chat format, ensuring you get the best results for your specific task.</li>
-            <li><b>Easy Copy-Paste:</b> Instantly copy any prompt or suggestion with a single click, so you can use it directly in ChatGPT, Gemini, or any other AI tool.</li>
-            <li><b>Supports Multiple AI Models:</b> Designed to help you craft effective prompts for a variety of AI systems, including ChatGPT, Gemini, and more.</li>
+            <li><b>Leveled Prompt Generation (Beginner, Intermediate, Advanced):</b> Access a powerful AI prompt generator that tailors suggestions to your experience level, making prompt engineering easy for everyone.</li>
+            <li><b>Clear Explanations:</b> Every prompt includes a concise explanation, so you understand how and why it works—empowering you to craft better prompts.</li>
+            <li><b>Contextual Chat Refinement:</b> Use our AI assistant to iteratively improve your prompts in a conversational interface, ensuring optimal results for any task.</li>
+            <li><b>Easy Copy-Paste:</b> Instantly copy prompts for use in ChatGPT, Gemini, or any AI tool—no friction, just productivity.</li>
+            <li><b>Supports Multiple AI Models:</b> PromptTune is designed for compatibility with a wide range of AI systems, helping you craft prompts for any use case.</li>
           </ul>
           {/* Who Can Benefit Section */}
           <div className="mt-10 text-left mx-auto max-w-2xl">
             <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-300 mb-2">Who Can Benefit from PromptTune?</h2>
             <p className="mb-2">
-              PromptTune is designed for anyone who wants to get more out of AI—no matter their background or experience level. Content creators can use PromptTune to generate creative ideas, refine their writing prompts, and streamline their workflow. Developers and technical professionals will appreciate the ability to craft precise, effective prompts for coding assistants, data analysis, and automation tasks. Students and researchers can leverage PromptTune to ask better questions, summarize information, and explore new topics with clarity and depth.
+              PromptTune is for anyone looking to improve their AI interactions—regardless of background or experience. Content creators can generate creative ideas and refine writing prompts, while developers and technical professionals can craft precise prompts for coding assistants, data analysis, and automation. Students and researchers benefit from better questions, summaries, and deeper exploration of new topics.
             </p>
             <p>
-              Marketers, business professionals, and anyone new to AI will find PromptTune especially approachable. The app's intuitive interface and leveled prompt suggestions make it easy for non-technical users to start generating high-quality prompts right away—no jargon or prior experience required. At the same time, advanced users can dive deeper, iteratively refining their prompts and unlocking the full power of AI models like ChatGPT and Gemini. Whether you're just starting your AI journey or looking to take your skills to the next level, PromptTune is your personal guide to better, smarter AI interactions.
+              Marketers, business professionals, and those new to AI will find PromptTune&apos;s intuitive interface and leveled prompt generator especially approachable—no jargon or prior experience required. Advanced users can leverage powerful prompt engineering tools and contextual chat refinement to unlock the full capabilities of any AI assistant. Whether you&apos;re just starting out or aiming to master prompt engineering, PromptTune is your guide to smarter, more effective AI results.
             </p>
           </div>
           {/* Call to Action */}
           <div className="mt-8 text-center">
             <p className="text-lg font-semibold text-sky-700 dark:text-sky-400">
-              Ready to unlock the full potential of AI? Join PromptTune now and start creating powerful, effective prompts with ease—no experience required! Sign up today and take your AI interactions to the next level.
+              Ready to unlock the full potential of AI? Sign up for PromptTune—your all-in-one AI prompt generator and engineering assistant—and start crafting powerful prompts with ease. Join today and elevate your AI results, no experience required!
             </p>
           </div>
         </section>
