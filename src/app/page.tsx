@@ -55,9 +55,13 @@ interface TopBarProps {
 
 interface SidebarProps {
   isOpen: boolean;
+  onOpenChange: (isOpen: boolean) => void;
   chatHistory: ChatHistoryItem[];
   currentChatId: string | null;
-  onChatSelect: (chatId: string | null) => void;
+  onSelectChat: (chatId: string) => void;
+  onNewChat: () => void;
+  onSignOut: () => Promise<void>;
+  onDeleteChat: (chatId: string) => Promise<void>;
   user: User | null;
 }
 
@@ -164,19 +168,19 @@ export default function HomePage() {
     setUserInput("");
     setStreamingAI(null);
     setStreamingMessageId(null);
-    setIsSidebarOpen(false); // Close sidebar on mobile
+    setIsSidebarOpen(false);
   }, []);
 
   const handleSelectChat = useCallback((chatId: string) => {
     if (chatId === currentChatId) return;
     setCurrentChatId(chatId);
-    setMessages([]); // Clear messages immediately
+    setMessages([]);
     setStreamingAI(null);
     setStreamingMessageId(null);
-    setIsSidebarOpen(false); // Close sidebar on mobile
+    setIsSidebarOpen(false);
   }, [currentChatId]);
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     try {
       await signOut(auth);
       setCurrentChatId(null);
@@ -189,7 +193,7 @@ export default function HomePage() {
       console.error("Error signing out:", error);
       setAuthError("Failed to sign out");
     }
-  };
+  }, []);
 
   const handleDeleteChat = useCallback(async (chatId: string) => {
     if (!user) return;
@@ -202,7 +206,6 @@ export default function HomePage() {
       const chatRef = doc(firestore, 'users', user.uid, 'chats', chatId);
       await deleteDoc(chatRef);
 
-      // If the deleted chat was the current one, start a new chat
       if (chatId === currentChatId) {
         handleNewChat();
       }
@@ -211,6 +214,19 @@ export default function HomePage() {
       setAuthError("Failed to delete chat");
     }
   }, [user, currentChatId, handleNewChat]);
+
+  const handleResendVerificationEmail = useCallback(async () => {
+    if (user && !user.emailVerified) {
+      try {
+        await sendEmailVerification(user);
+        setVerificationEmailResent(true);
+        setTimeout(() => setVerificationEmailResent(false), 15000);
+      } catch (error) {
+        console.error("Error resending verification email:", error);
+        alert("Failed to resend verification email. Please try again later.");
+      }
+    }
+  }, [user]);
 
   // Theme initialization and management
   useEffect(() => {
@@ -322,7 +338,7 @@ export default function HomePage() {
       let activeChatId = currentChatId;
       const userMessageToSaveToDb = { id: userMessageId, type: 'user' as const, text: currentInput };
 
-      if (!activeChatId) { // New chat
+      if (!activeChatId) {
         const newChatId = await createNewChatInFirestore(user.uid, currentInput, userMessageId);
         if (newChatId) {
           activeChatId = newChatId;
@@ -338,13 +354,11 @@ export default function HomePage() {
           setStreamingMessageId(null);
           return;
         }
-      } else { // Existing chat
+      } else {
         await addMessageToChatInFirestore(user.uid, activeChatId, userMessageToSaveToDb);
       }
 
-      // Call AI, only if we have an activeChatId
       if (activeChatId) {
-        // Prepare history: use messages *before* adding the current user's input for the AI's context
         const conversationHistoryForAI = messages
           .filter(m => m.id !== userMessageId)
           .filter(m => m.type === 'user' || m.type === 'ai')
@@ -378,19 +392,6 @@ export default function HomePage() {
       setStreamingMessageId(null);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleResendVerificationEmail = async () => {
-    if (user && !user.emailVerified) {
-      try {
-        await sendEmailVerification(user);
-        setVerificationEmailResent(true);
-        setTimeout(() => setVerificationEmailResent(false), 15000); // Message visible for 15s
-      } catch (error) {
-        console.error("Error resending verification email:", error);
-        alert("Failed to resend verification email. Please try again later.");
-      }
     }
   };
 
@@ -582,9 +583,12 @@ export default function HomePage() {
             user={user}
           />
           <div className="flex-1 flex flex-col overflow-hidden">
-            {messages.length === 0 ? (
+            {(messages.length === 0 && !currentChatId) && !isLoading && !streamingAI ? (
               <div className="flex-1 flex flex-col items-center justify-center p-4">
-                <h1 className="text-2xl font-bold mb-8">Welcome to PromptTune! AI</h1>
+                <h1 className="text-2xl font-bold mb-8 text-center">
+                  {user.displayName ? `Hi, ${user.displayName.split(' ')[0]}!` : 'Welcome to PromptTune!'}
+                  <br /> How can I help you craft a prompt today?
+                </h1>
                 <div className="w-full max-w-3xl mx-auto px-4 sm:px-6">
                   <MessageInputComponent
                     value={userInput}
@@ -599,16 +603,16 @@ export default function HomePage() {
                 <ChatAreaComponent
                   messages={messages}
                   streamingAI={streamingAI}
-                  isLoading={isLoading && !streamingAI}
+                  isLoading={isLoading && !streamingAI && messages.length > 0}
                   chatEndRef={conversationEndRef}
                   streamingMessageId={streamingMessageId}
                 />
-                <div className="w-full max-w-3xl mx-auto px-4 sm:px-6">
+                <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-4 border-t border-border bg-background flex-shrink-0">
                   <MessageInputComponent
                     value={userInput}
                     onChange={setUserInput}
                     onSend={handleSubmit}
-                    disabled={isLoading}
+                    disabled={isLoading || (user && !user.emailVerified && showVerificationModal)}
                   />
                 </div>
               </>
