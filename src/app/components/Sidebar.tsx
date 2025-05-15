@@ -7,6 +7,7 @@ import { User } from "firebase/auth";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 import { Trash2, Mail } from "lucide-react";
+import React, { useCallback } from "react";
 
 interface ChatHistoryItem {
   id: string;
@@ -26,7 +27,7 @@ interface SidebarProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export default function Sidebar({ 
+function Sidebar({ 
   user, 
   chatHistory, 
   currentChatId, 
@@ -37,26 +38,26 @@ export default function Sidebar({
   isOpen,
   onOpenChange
 }: SidebarProps) {
-  const formatDate = (timestamp: Timestamp | null) => {
+  const formatDate = useCallback((timestamp: Timestamp | null) => {
     if (!timestamp || typeof timestamp.toDate !== 'function') {
       return 'Processing date...';
     }
     const date = timestamp.toDate();
     return format(date, 'MMM d, h:mm a');
-  };
+  }, []);
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="p-0 w-72 bg-background text-foreground">
-        <div className="flex flex-col h-full p-4 gap-4">
+      <SheetContent side="left" className="p-0 w-[280px] sm:w-72 bg-background text-foreground">
+        <div className="flex flex-col h-full p-3 sm:p-4 gap-3 sm:gap-4">
           {/* Logo/App Name */}
-          <div className="flex items-center gap-2 mb-2">
-            <span className="font-bold text-lg tracking-tight">PromptTune</span>
+          <div className="flex items-center gap-2 mb-1 sm:mb-2">
+            <span className="font-bold text-base sm:text-lg tracking-tight">PromptTune</span>
           </div>
 
           {/* New Chat Button */}
           <Button 
-            className="w-full mb-2" 
+            className="w-full h-9 sm:h-10 text-sm sm:text-base mb-1 sm:mb-2" 
             variant="default"
             onClick={onNewChat}
           >
@@ -66,45 +67,55 @@ export default function Sidebar({
           <Separator />
 
           {/* Chat History */}
-          <div className="flex-1 overflow-y-auto mt-2 space-y-2">
-            {chatHistory.map(chat => (
-              <Card 
-                key={chat.id} 
-                className={`group p-3 cursor-pointer hover:bg-muted transition-colors ${
-                  currentChatId === chat.id ? 'bg-muted' : ''
-                }`}
-              >
-                <div 
-                  className="flex items-start justify-between gap-2"
-                  onClick={() => onSelectChat(chat.id)}
+          <div className="flex-1 overflow-y-auto mt-1 sm:mt-2 space-y-1.5 sm:space-y-2">
+            {chatHistory && chatHistory.length > 0 ? (
+              chatHistory.map(chat => (
+                <Card 
+                  key={chat.id} 
+                  className={`group p-2 sm:p-3 cursor-pointer hover:bg-muted transition-colors ${
+                    currentChatId === chat.id ? 'bg-muted' : ''
+                  }`}
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className="truncate text-sm font-medium">{chat.title}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatDate(chat.updatedAt)}
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteChat(chat.id);
-                    }}
+                  <div 
+                    className="flex items-start justify-between gap-1.5 sm:gap-2"
+                    onClick={() => onSelectChat(chat.id)}
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </Card>
-            ))}
+                    <div className="flex-1 min-w-0">
+                      <div className="truncate text-xs sm:text-sm font-medium">{chat.title}</div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground">
+                        {formatDate(chat.updatedAt)}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 sm:h-8 sm:w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteChat(chat.id);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    </Button>
+                  </div>
+                </Card>
+              ))
+            ) : user ? (
+              <p className="text-xs sm:text-sm text-muted-foreground text-center px-2 py-3 sm:py-4">
+                No chats yet. Start a new conversation!
+              </p>
+            ) : (
+              <p className="text-xs sm:text-sm text-muted-foreground text-center px-2 py-3 sm:py-4">
+                Login to see your chat history.
+              </p>
+            )}
           </div>
 
-          <Separator className="my-2" />
+          <Separator className="my-1 sm:my-2" />
 
           {/* Contact Me Button */}
           <Button
-            className="w-full justify-start font-medium"
+            className="w-full justify-start font-medium h-9 sm:h-10 text-sm sm:text-base"
             variant="ghost"
             asChild
           >
@@ -112,9 +123,9 @@ export default function Sidebar({
               href="mailto:prashantkd010@gmail.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 w-full px-2 py-2 rounded-md transition-colors hover:bg-muted"
+              className="flex items-center gap-1.5 sm:gap-2 w-full px-2 py-2 rounded-md transition-colors hover:bg-muted"
             >
-              <Mail className="w-4 h-4" />
+              <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               Contact Me
             </a>
           </Button>
@@ -122,4 +133,6 @@ export default function Sidebar({
       </SheetContent>
     </Sheet>
   );
-} 
+}
+
+export default React.memo(Sidebar); 

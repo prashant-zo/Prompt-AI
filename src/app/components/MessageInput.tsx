@@ -1,9 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import { Send } from "lucide-react";
+import React from "react";
 
-export default function MessageInput({ value, onChange, onSend, disabled }: {
+function MessageInput({ value, onChange, onSend, disabled }: {
   value: string;
   onChange: (v: string) => void;
   onSend: () => void;
@@ -11,37 +12,38 @@ export default function MessageInput({ value, onChange, onSend, disabled }: {
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const adjustTextareaHeight = () => {
+  const adjustTextareaHeight = useCallback(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = 'auto';
       textarea.style.height = `${textarea.scrollHeight}px`;
     }
-  };
+  }, []);
 
   useEffect(() => {
     adjustTextareaHeight();
-  }, [value]);
+  }, [value, adjustTextareaHeight]);
 
-  const handleInputChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInputChange = useCallback((event: React.ChangeEvent<HTMLTextAreaElement>) => {
     onChange(event.target.value);
-    // adjustTextareaHeight(); // useEffect will handle this after value updates
-  };
+  }, [onChange]);
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       onSend();
     }
-  };
+  }, [onSend]);
+
+  const handleSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    onSend();
+  }, [onSend]);
 
   return (
     <form
-      className="w-full flex items-end gap-2 bg-background border border-border rounded-xl shadow-lg px-4 py-3"
-      onSubmit={e => {
-        e.preventDefault();
-        onSend();
-      }}
+      className="w-full flex items-end gap-2 bg-background border border-border rounded-xl shadow-lg px-2 sm:px-4 py-2 sm:py-3"
+      onSubmit={handleSubmit}
     >
       <textarea
         ref={textareaRef}
@@ -50,7 +52,7 @@ export default function MessageInput({ value, onChange, onSend, disabled }: {
         onKeyDown={handleKeyDown}
         placeholder="Send a message..."
         rows={1}
-        className="flex-1 bg-transparent resize-none border-none focus:ring-0 focus:outline-none min-h-[40px] max-h-[120px] text-base font-light overflow-y-auto"
+        className="flex-1 bg-transparent resize-none border-none focus:ring-0 focus:outline-none min-h-[36px] sm:min-h-[40px] max-h-[120px] text-sm sm:text-base font-light overflow-y-auto"
         style={{ boxShadow: 'none' }}
         autoFocus
       />
@@ -58,12 +60,14 @@ export default function MessageInput({ value, onChange, onSend, disabled }: {
         type="submit"
         size="icon"
         variant="default"
-        className="rounded-full bg-black hover:bg-neutral-800 text-white disabled:opacity-50 disabled:hover:bg-black"
+        className="rounded-full bg-black hover:bg-neutral-800 text-white disabled:opacity-50 disabled:hover:bg-black h-8 w-8 sm:h-9 sm:w-9"
         disabled={disabled || !value.trim()}
         aria-label="Send"
       >
-        <Send className="w-5 h-5" />
+        <Send className="w-4 h-4 sm:w-5 sm:h-5" />
       </Button>
     </form>
   );
-} 
+}
+
+export default React.memo(MessageInput); 

@@ -41,16 +41,29 @@ Your core mission is to empower users by:
 Remember, your goal is to make prompt engineering accessible, understandable, and effective for everyone.
 Now, considering the user's LATEST input (and the preceding conversation history if any), please respond precisely according to these detailed instructions.`;
 
+interface GenerateResponse {
+  success: boolean;
+  data?: string;
+  error?: string;
+}
+
 export async function refinePromptOrGeneratePath(
   userInput: string,
   history?: { role: 'user' | 'model', parts: { text: string }[] }[]
-) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.error('Gemini API key not found.'); // Log on server
-    return { // Return structured error for client
+): Promise<GenerateResponse> {
+  const apiKey = process.env.GEMINI_API_KEY as string | undefined;
+  if (!apiKey?.trim()) {
+    console.error('Gemini API key not found or empty.');
+    return {
       success: false,
-      error: 'Server configuration error: API key is missing.'
+      error: 'Server configuration error: API key is missing or invalid.'
+    };
+  }
+
+  if (!userInput.trim()) {
+    return {
+      success: false,
+      error: 'User input cannot be empty.'
     };
   }
 
@@ -60,28 +73,50 @@ export async function refinePromptOrGeneratePath(
 
     const contentsForApi: Content[] = [
       {
-        role: 'model', // System instructions presented as if the model said them first
+        role: 'model',
         parts: [{ text: justSystemInstructions }]
       }
     ];
 
-    if (history && history.length > 0) {
-      contentsForApi.push(...history.map(item => ({
+    if (history?.length) {
+      const validHistory = history.filter(item => 
+        (item.role === 'user' || item.role === 'model') &&
+        Array.isArray(item.parts) &&
+        item.parts.every(part => typeof part.text === 'string' && part.text.trim().length > 0)
+      );
+      
+      if (validHistory.length !== history.length) {
+        console.warn('Some history items were invalid and were filtered out');
+      }
+      
+      contentsForApi.push(...validHistory.map(item => ({
         role: item.role,
-        parts: item.parts.map(part => ({ text: part.text })) // Ensure parts array is correctly formed
-      } as Content))); // Cast to Content to satisfy TypeScript if item.role is already 'user' | 'model'
+        parts: item.parts.map(part => ({ text: part.text }))
+      } as Content)));
     }
 
     contentsForApi.push({
       role: 'user',
-      parts: [{ text: userInput }]
+      parts: [{ text: userInput.trim() }]
     });
 
     const result = await model.generateContent({ contents: contentsForApi });
     const response = result.response;
-    
-    // FIX: response.text() is synchronous
-    const text = response.text(); 
+
+    if (!response) {
+      return {
+        success: false,
+        error: 'No response received from AI model.'
+      };
+    }
+
+    const text = response.text();
+    if (!text?.trim()) {
+      return {
+        success: false,
+        error: 'Empty response received from AI model.'
+      };
+    }
 
     return {
       success: true,
@@ -89,9 +124,31 @@ export async function refinePromptOrGeneratePath(
     };
   } catch (error) {
     console.error('Error in refinePromptOrGeneratePath:', error);
+    
+    if (error instanceof Error) {
+      if (error.message.includes('API key')) {
+        return {
+          success: false,
+          error: 'Authentication error: Invalid API key.'
+        };
+      }
+      if (error.message.includes('quota')) {
+        return {
+          success: false,
+          error: 'Rate limit exceeded. Please try again later.'
+        };
+      }
+      if (error.message.includes('model')) {
+        return {
+          success: false,
+          error: 'Model error: Please try again later.'
+        };
+      }
+    }
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'An error occurred while generating content from the AI.'
+      error: 'An unexpected error occurred while generating content.'
     };
   }
 }

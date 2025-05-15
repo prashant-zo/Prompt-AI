@@ -38,23 +38,23 @@
 
   .dark {
     /* Dark theme - using exact Tailwind neutral-900 and neutral-50 values */
-    --background: 0 0% 9%; /* neutral-900 */
-    --foreground: 0 0% 98%; /* neutral-50 */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
     
-    --card: 0 0% 9%;
-    --card-foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 100%;
     
-    --popover: 0 0% 9%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 100%;
     
-    --primary: 0 0% 98%;
+    --primary: 0 0% 100%;
     --primary-foreground: 222.2 47.4% 11.2%;
     
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     
     --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted-foreground: 215 20.2% 75.1%;
     
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
@@ -83,4 +83,97 @@
     white-space: normal;
     text-wrap: balance; /* stylelint-disable-line property-no-unknown */
   }
+}
+
+/* Dark mode prose overrides */
+.dark .prose {
+  @apply text-neutral-50;
+}
+
+.dark .prose a {
+  @apply text-sky-400 hover:text-sky-300;
+}
+
+.dark .prose strong {
+  @apply text-neutral-50 font-semibold;
+}
+
+.dark .prose p,
+.dark .prose li,
+.dark .prose h1,
+.dark .prose h2,
+.dark .prose h3,
+.dark .prose h4,
+.dark .prose h5,
+.dark .prose h6 {
+  @apply text-neutral-50;
+}
+
+.dark .prose blockquote {
+  @apply border-sky-400/50 bg-slate-900/50 text-neutral-50;
+}
+
+.dark .prose code {
+  @apply bg-slate-900 text-neutral-50;
+}
+
+.dark .prose pre {
+  @apply bg-slate-900 text-neutral-50;
+}
+
+.dark .prose pre code {
+  @apply bg-transparent;
+}
+
+/* Additional dark mode fixes */
+.dark .prose ul {
+  @apply text-neutral-50;
+}
+
+.dark .prose ol {
+  @apply text-neutral-50;
+}
+
+.dark .prose hr {
+  @apply border-slate-700;
+}
+
+.dark .prose table {
+  @apply text-neutral-50;
+}
+
+.dark .prose th {
+  @apply bg-slate-900 text-neutral-50;
+}
+
+.dark .prose td {
+  @apply text-neutral-50;
+}
+
+.dark .prose thead {
+  @apply border-slate-700;
+}
+
+.dark .prose tbody {
+  @apply border-slate-700;
+}
+
+.dark .prose tr {
+  @apply border-slate-700;
+}
+
+.dark .prose img {
+  @apply border-slate-700;
+}
+
+.dark .prose video {
+  @apply border-slate-700;
+}
+
+.dark .prose figure {
+  @apply text-neutral-50;
+}
+
+.dark .prose figcaption {
+  @apply text-neutral-50;
 }
